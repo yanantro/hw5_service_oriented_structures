@@ -1,0 +1,469 @@
+{
+  "services": {
+    "zookeeper": {
+      "image": "confluentinc/cp-zookeeper:7.7.1",
+      "environment": {
+        "ZOOKEEPER_CLIENT_PORT": 2181,
+        "ZOOKEEPER_TICK_TIME": 2000
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "cub zk-ready localhost 2181"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      },
+      "volumes": [
+        "zk-data:/var/lib/zookeeper/data",
+        "zk-log:/var/lib/zookeeper/log"
+      ]
+    },
+    "kafka1": {
+      "image": "confluentinc/cp-kafka:7.7.1",
+      "depends_on": {
+        "zookeeper": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "KAFKA_BROKER_ID": 1,
+        "KAFKA_ZOOKEEPER_CONNECT": "zookeeper:2181",
+        "KAFKA_LISTENERS": "PLAINTEXT://0.0.0.0:9092",
+        "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://kafka1:9092",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": 3,
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": 3,
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": 1,
+        "KAFKA_MIN_INSYNC_REPLICAS": 1,
+        "KAFKA_DEFAULT_REPLICATION_FACTOR": 3,
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "false",
+        "KAFKA_HEAP_OPTS": "-Xms256m -Xmx512m",
+        "KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS": 0
+      },
+      "volumes": [
+        "kafka1-data:/var/lib/kafka/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      }
+    },
+    "kafka2": {
+      "image": "confluentinc/cp-kafka:7.7.1",
+      "depends_on": {
+        "zookeeper": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "KAFKA_BROKER_ID": 2,
+        "KAFKA_ZOOKEEPER_CONNECT": "zookeeper:2181",
+        "KAFKA_LISTENERS": "PLAINTEXT://0.0.0.0:9092",
+        "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://kafka2:9092",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": 3,
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": 3,
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": 1,
+        "KAFKA_MIN_INSYNC_REPLICAS": 1,
+        "KAFKA_DEFAULT_REPLICATION_FACTOR": 3,
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "false",
+        "KAFKA_HEAP_OPTS": "-Xms256m -Xmx512m",
+        "KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS": 0
+      },
+      "volumes": [
+        "kafka2-data:/var/lib/kafka/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      }
+    },
+    "kafka3": {
+      "image": "confluentinc/cp-kafka:7.7.1",
+      "depends_on": {
+        "zookeeper": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "KAFKA_BROKER_ID": 3,
+        "KAFKA_ZOOKEEPER_CONNECT": "zookeeper:2181",
+        "KAFKA_LISTENERS": "PLAINTEXT://0.0.0.0:9092",
+        "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://kafka3:9092",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": 3,
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": 3,
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": 1,
+        "KAFKA_MIN_INSYNC_REPLICAS": 1,
+        "KAFKA_DEFAULT_REPLICATION_FACTOR": 3,
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "false",
+        "KAFKA_HEAP_OPTS": "-Xms256m -Xmx512m",
+        "KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS": 0
+      },
+      "volumes": [
+        "kafka3-data:/var/lib/kafka/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      }
+    },
+    "schema-registry": {
+      "image": "confluentinc/cp-schema-registry:7.7.1",
+      "depends_on": {
+        "kafka1": {
+          "condition": "service_healthy"
+        },
+        "kafka2": {
+          "condition": "service_healthy"
+        },
+        "kafka3": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "SCHEMA_REGISTRY_HOST_NAME": "schema-registry",
+        "SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS": "kafka1:9092,kafka2:9092,kafka3:9092",
+        "SCHEMA_REGISTRY_LISTENERS": "http://0.0.0.0:8081",
+        "SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR": 3
+      },
+      "ports": [
+        "8081:8081"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8081/subjects >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      }
+    },
+    "clickhouse": {
+      "image": "clickhouse/clickhouse-server:24.8.14.39",
+      "environment": {
+        "CLICKHOUSE_USER": "cinema",
+        "CLICKHOUSE_PASSWORD": "cinema",
+        "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT": 1
+      },
+      "ports": [
+        "8123:8123"
+      ],
+      "volumes": [
+        "clickhouse-data:/var/lib/clickhouse"
+      ],
+      "ulimits": {
+        "nofile": {
+          "soft": 262144,
+          "hard": 262144
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "clickhouse-client --user cinema --password cinema --query 'SELECT 1'"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      }
+    },
+    "postgres": {
+      "image": "postgres:16.6",
+      "environment": {
+        "POSTGRES_USER": "cinema",
+        "POSTGRES_PASSWORD": "cinema",
+        "POSTGRES_DB": "cinema"
+      },
+      "volumes": [
+        "postgres-data:/var/lib/postgresql/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U cinema -d cinema"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      }
+    },
+    "minio": {
+      "command": [
+        "server",
+        "/data",
+        "--console-address",
+        ":9001"
+      ],
+      "environment": {
+        "MINIO_ROOT_USER": "minioadmin",
+        "MINIO_ROOT_PASSWORD": "minioadmin"
+      },
+      "ports": [
+        "9000:9000",
+        "9001:9001"
+      ],
+      "volumes": [
+        "minio-data:/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:9000/minio/health/live >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      },
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile.minio"
+      }
+    },
+    "bootstrap": {
+      "build": ".",
+      "command": [
+        "python",
+        "bootstrap.py"
+      ],
+      "depends_on": {
+        "schema-registry": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "from pathlib import Path; assert Path('/tmp/ready').exists()"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      },
+      "restart": "on-failure"
+    },
+    "migrate": {
+      "build": ".",
+      "command": [
+        "python",
+        "migrate.py"
+      ],
+      "depends_on": {
+        "bootstrap": {
+          "condition": "service_completed_successfully"
+        },
+        "clickhouse": {
+          "condition": "service_healthy"
+        },
+        "postgres": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "from pathlib import Path; assert Path('/tmp/ready').exists()"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      },
+      "restart": "on-failure"
+    },
+    "producer": {
+      "build": ".",
+      "ports": [
+        "8000:8000"
+      ],
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health',timeout=4)"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      },
+      "restart": "unless-stopped"
+    },
+    "aggregation": {
+      "build": ".",
+      "command": [
+        "uvicorn",
+        "aggregation:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001"
+      ],
+      "ports": [
+        "8001:8001"
+      ],
+      "environment": {
+        "AGGREGATION_INTERVAL": "${AGGREGATION_INTERVAL:-60}"
+      },
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        },
+        "minio": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health',timeout=4)"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      },
+      "restart": "unless-stopped"
+    },
+    "generator": {
+      "build": ".",
+      "command": [
+        "python",
+        "generator.py"
+      ],
+      "depends_on": {
+        "producer": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import os; os.kill(1,0)"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 10,
+        "start_period": "20s"
+      },
+      "restart": "unless-stopped"
+    },
+    "grafana": {
+      "image": "grafana/grafana:11.4.0",
+      "environment": {
+        "GF_SECURITY_ADMIN_USER": "admin",
+        "GF_SECURITY_ADMIN_PASSWORD": "admin",
+        "GF_PATHS_PLUGINS": "/opt/cinema-plugins"
+      },
+      "ports": [
+        "3000:3000"
+      ],
+      "volumes": [
+        "./grafana/provisioning:/etc/grafana/provisioning:ro",
+        "./grafana/dashboards:/var/lib/grafana/dashboards:ro",
+        "grafana-data:/var/lib/grafana",
+        "./grafana/plugins:/opt/cinema-plugins:ro"
+      ],
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "wget -q -O - http://localhost:3000/api/health >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      },
+      "restart": "unless-stopped"
+    },
+    "tests": {
+      "build": ".",
+      "command": [
+        "pytest",
+        "-q",
+        "tests"
+      ],
+      "profiles": [
+        "test"
+      ],
+      "depends_on": {
+        "producer": {
+          "condition": "service_healthy"
+        },
+        "aggregation": {
+          "condition": "service_healthy"
+        },
+        "grafana": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import os; os.kill(1,0)"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30,
+        "start_period": "20s"
+      }
+    }
+  },
+  "volumes": {
+    "zk-data": {},
+    "zk-log": {},
+    "kafka1-data": {},
+    "kafka2-data": {},
+    "kafka3-data": {},
+    "clickhouse-data": {},
+    "postgres-data": {},
+    "minio-data": {},
+    "grafana-data": {}
+  },
+  "name": "online-cinema-hw5"
+}

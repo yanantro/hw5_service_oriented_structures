@@ -1,0 +1,70 @@
+все import ast
+import importlib.util
+import json
+from pathlib import Path
+import sys
+import tokenize
+import types
+import unittest
+from datetime import datetime, timezone
+
+root = Path(__file__).resolve().parent
+
+
+class LocalChecks(unittest.TestCase):
+ def test_python_and_comments(self):
+  for path in root.rglob("*.py"):
+   ast.parse(path.read_text())
+   with tokenize.open(path) as stream:
+    tokens = tokenize.generate_tokens(stream.readline)
+    self.assertFalse(any(t.type == tokenize.COMMENT for t in tokens), str(path))
+
+ def test_compose(self):
+  config = json.loads((root / "docker-compose.yml").read_text())
+  services = config["services"]
+  self.assertTrue(all("healthcheck" in s for s in services.values()))
+  self.assertEqual(len([s for s in services if s.startswith("kafka")]), 3)
+  for service in services.values():
+   self.assertTrue(all(dep in services for dep in service.get("depends_on", {})))
+
+ def test_schema_evolution(self):
+  v1 = json.loads((root / "schemas/movie-event-v1.avsc").read_text())
+  v2 = json.loads((root / "schemas/movie-event-v2.avsc").read_text())
+  self.assertEqual(v1["fields"], v2["fields"][:-1])
+  self.assertEqual(v2["fields"][-1]["default"], "1.0")
+  self.assertEqual(len(v1["fields"]), 8)
+  self.assertEqual(v1["fields"][4]["type"]["logicalType"], "timestamp-millis")
+
+ def test_dashboard(self):
+  board = json.loads((root / "grafana/dashboards/cinema.json").read_text())
+  self.assertGreaterEqual(len(board["panels"]), 3)
+  for panel in board["panels"]:
+   self.assertIn("cinema.metrics", panel["targets"][0]["rawSql"])
+   self.assertNotIn("cinema.events", panel["targets"][0]["rawSql"])
+  self.assertTrue(all(f"Day {i}" in board["panels"][0]["targets"][0]["rawSql"] for i in range(8)))
+
+ def test_generator(self):
+  original = sys.modules.get("requests")
+  sys.modules["requests"] = types.ModuleType("requests")
+  try:
+   spec = importlib.util.spec_from_file_location("local_generator", root / "generator.py")
+   module = importlib.util.module_from_spec(spec)
+   spec.loader.exec_module(module)
+   for i in range(200):
+    events = list(module.sequence(str(i), datetime.now(timezone.utc)))
+    types_ = [e["event_type"] for e in events]
+    self.assertLess(types_.index("VIEW_STARTED"), types_.index("VIEW_RESUMED"))
+    if "VIEW_FINISHED" in types_:
+     self.assertLess(types_.index("VIEW_STARTED"), types_.index("VIEW_FINISHED"))
+    self.assertEqual([e["progress_seconds"] for e in events], sorted(e["progress_seconds"] for e in events))
+    self.assertEqual(len({e["session_id"] for e in events}), 1)
+    self.assertEqual([e["timestamp"] for e in events], sorted(e["timestamp"] for e in events))
+  finally:
+   if original is None:
+    sys.modules.pop("requests", None)
+   else:
+    sys.modules["requests"] = original
+
+
+if __name__ == "__main__":
+ unittest.main()
